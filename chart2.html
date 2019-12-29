@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>ДИНАМИКА СТОИМОСТИ КИКСОВ К КОЛИЧЕСТВУ БИЗНЕСОВ</title>
+</head>
+<style>
+    body{
+        text-align: center;
+        font-family: Arial;
+    }
+    .main {
+        display: block;
+    }
+    .container {
+        width: 50%;
+        height: 50%;
+        position: relative;
+        display: block;
+        margin: 0 auto;
+    }
+    .under-chart {
+        position: relative;
+        display: block;
+        margin: 0 auto;
+        width: 55%;
+        overflow: hidden;
+    }
+    .chart-name {
+        position: relative;
+        float: left;
+        color: #66686e;
+        width: 20%;
+        margin:20px 10px;
+    }
+    .date-range {
+        position: relative;
+        float: right;
+        /*width: 33%;*/
+        margin: 10px 60px;
+        padding: 10px 0;
+        color: #000000;
+        background-color: #eaf0f0;
+    }
+    .date-range span {
+        padding: 6px 10px;
+        cursor: pointer;
+    }
+    .date-range .active {
+        color: #ffffff;
+        background-color: #aba9e5;
+        border-radius: 3px;
+    }
+</style>
+
+<body>
+
+<div class="main">
+<h1>ДИНАМИКА СТОИМОСТИ КИКСОВ К КОЛИЧЕСТВУ БИЗНЕСОВ</h1>
+
+<div class="under-chart">
+    <div class="chart-name">KIKS/USD</div>
+    <div class="date-range">
+        <span>Неделя</span>
+        <span>Месяц</span>
+        <span>Полгода</span>
+        <span  class="active">Все время</span>
+    </div>
+</div>
+
+<div class="container">
+    <canvas id="mixChart"></canvas>
+</div>
+</div>
+</body>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.7.2/Chart.js"></script>
+
+<script type="text/javascript">
+
+  var canvas =  document.getElementById("mixChart"),
+    mix = canvas.getContext('2d'),
+    chart,
+    currencyRate = [],
+    companiesCount = [],
+    preparedCurrencyRate = [],
+    preparedCompaniesCount = [],
+    rawCurrencyRate = [],
+    rawCompaniesCount = [],
+    labels = [],
+    gradientLine = mix.createLinearGradient(0, 0, 0, 250),
+    gradientBar = mix.createLinearGradient(0, 0, 0, 450),
+    xLabel = 'Businesses',
+    yLabel = 'Kiks',
+    period = 3,
+    periodChoice = document.querySelector('.date-range').children;
+
+  // set gradients parameters
+  gradientLine.addColorStop(0, 'rgba(144, 112, 247, 0.5)');
+  gradientLine.addColorStop(0.5, 'rgba(144, 112, 247, 0.25)');
+  gradientLine.addColorStop(1, 'rgba(144, 112, 247, 0)');
+  gradientBar.addColorStop(1, 'rgba(144, 112, 247, 1)');
+  gradientBar.addColorStop(0, 'rgb(114, 190, 246, 1)');
+
+  // add handlers to switch active class of buttons on panel an to change points ---------------------------------------
+  for (let i = 0; i < periodChoice.length; i++) {
+    periodChoice[i].addEventListener('click', () => {
+      period = i;
+      for (let j = 0; j < periodChoice.length; j++) {
+        j == i ? periodChoice[j].classList.add('active') : periodChoice[j].classList.remove('active')
+      }
+      changePoints();
+      chart.data.datasets[0].data = currencyRate;
+      chart.data.datasets[1].data = companiesCount;
+      chart.data.labels = labels;
+      chart.update();
+    });
+  };
+
+  // the same with closure
+/*    for (var i = 0; i < periodChoice.length; i++) {
+      periodChoice[i].addEventListener('click',
+        function(order) {
+          return function() {
+            period = order;
+            for (var j = 0; j < periodChoice.length; j++) {
+              j == order ? periodChoice[j].classList.add('active') : periodChoice[j].classList.remove('active')
+            }
+            changePoints();
+            chart.data.datasets[0].data = currencyRate;
+            chart.data.datasets[1].data = companiesCount;
+            chart.data.labels = labels;
+            chart.update();
+          }
+        }(i));
+    };*/
+  //--------------------------------------------------------------------------------------------------------------------
+
+  // get points from json
+  fetch("uploads/json/currencyRate.json")
+    .then(response => response.json())
+    .then(result => {
+      rawCurrencyRate = result;
+      return fetch("uploads/json/companiesCount.json");
+    })
+    .then(response2 => response2.json())
+    .then(result2 => {
+      rawCompaniesCount = result2;
+      dataPrepare(rawCurrencyRate, rawCompaniesCount)
+      render()
+    });
+
+  // change point ranges according to period
+  function changePoints() {
+    const today = new Date();
+
+    currencyRate = [];
+    companiesCount = [];
+    labels = [];
+
+    switch (period) {
+                                                        // week
+      case 0: {
+        let index = 0;
+        for (let i = 0; i < preparedCurrencyRate.length; i++) {
+          let interval = Math.ceil((today - new Date(preparedCurrencyRate[i].date))/(1000*60*60*24));
+          //console.log(preparedCurrencyRate[i].date, Math.round(interval), interval)
+          if(interval <= 8) {
+            currencyRate[index] = preparedCurrencyRate[i].value;
+            companiesCount[index] = preparedCompaniesCount[i].value;
+            labels[index] = preparedCompaniesCount[i].value;
+            index++;
+          }
+        };
+        break;
+      };
+                                                        // month
+      case 1: {
+        let index = 0;
+        for (let i = 0; i < preparedCurrencyRate.length; i++) {
+          let interval = Math.ceil((today - new Date(preparedCurrencyRate[i].date))/(1000*60*60*24));
+          if(interval <= 30) {
+            currencyRate[index] = preparedCurrencyRate[i].value;
+            companiesCount[index] = preparedCompaniesCount[i].value;
+            labels[index] = preparedCompaniesCount[i].value;
+            index++;
+          }
+        };
+        break;
+      };
+                                                        // half of year
+      case 2: {
+        let lastMonth =  new Date().getMonth(),
+          halfYearMonths = new Set(),
+          lastDay = 1,
+          curDay,
+          month,
+          dates = [];
+
+        for(let i = 0; i < 6; i++) { // calculate numbers of last 6 months
+          halfYearMonths.add(lastMonth - i === 0 ? 0 : (lastMonth - i > 0 ? lastMonth - i : lastMonth - i +12));
+        }
+
+        for (let i = 0; i < preparedCurrencyRate.length; i++) {
+          curDay = new Date(preparedCurrencyRate[i].date).getDate();
+          month = new Date(preparedCurrencyRate[i].date).getMonth();
+          if (halfYearMonths.has(month)) {
+            if(curDay >= lastDay) {
+              lastDay = curDay;
+            } else {
+              currencyRate.push(preparedCurrencyRate[i-1].value);
+              companiesCount.push(preparedCompaniesCount[i-1].value);
+              labels.push(preparedCompaniesCount[i-1].value);
+              lastDay = 1;
+            }
+          }
+        }
+        currencyRate.push(preparedCurrencyRate[preparedCurrencyRate.length-1].value);
+        companiesCount.push(preparedCompaniesCount[preparedCurrencyRate.length-1].value);
+        labels.push(preparedCompaniesCount[preparedCurrencyRate.length-1].value);
+
+        break;
+      };
+                                                        // all the time
+      case 3: {
+        for (let i = 0; i < preparedCurrencyRate.length; i++) {
+          currencyRate[i] = preparedCurrencyRate[i].value;
+          companiesCount[i] = preparedCompaniesCount[i].value;
+          labels[i] = preparedCompaniesCount[i].value;
+        }
+        break;
+      };
+    };
+  };
+
+  // remain equal number of the points of the ranges in order to accomplish the pairs of the both ranges with same dates
+  function dataPrepare(temp_currencyRate, temp_companiesCount) {
+    for (let i = 0; i < temp_companiesCount.length; i++) {
+      let seekDate = new Date(temp_companiesCount[i].date);
+      if (
+        temp_currencyRate.find((item, index) => {
+            let testDate = new Date(item.date);
+            return testDate.getDate() + '/' + testDate.getMonth() + '/' + testDate.getFullYear() == seekDate.getDate() + '/' + seekDate.getMonth() + '/' + seekDate.getFullYear()
+          })
+        )
+      {
+        preparedCompaniesCount.push({value: temp_companiesCount[i].value, date: temp_companiesCount[i].date});
+      }
+    }
+    for (let j = 0; j < temp_currencyRate.length; j++) {
+      let seekDate = new Date(temp_currencyRate[j].date);
+      if (
+        temp_companiesCount.find((item, index) => {
+            let testDate = new Date(item.date);
+            return testDate.getDate() + '/' + testDate.getMonth() + '/' + testDate.getFullYear() == seekDate.getDate() + '/' + seekDate.getMonth() + '/' + seekDate.getFullYear()
+          })
+        )
+      {
+        preparedCurrencyRate.push({value: temp_currencyRate[j].value, date: temp_currencyRate[j].date});
+      }
+    }
+    changePoints()
+  };
+
+  // set options, data sources & paint the chart
+  function render() {
+    chart = new Chart(mix, {
+      type: 'bar',
+      data: {
+        labels: labels,
+        datasets: [
+          {
+            type: 'line',
+            label: yLabel,
+            data: currencyRate,
+            backgroundColor: gradientLine,
+            pointBackgroundColor: 'white',
+            borderWidth: 2,
+            borderColor: '#9070f7',
+            yAxisID: 'currencyRate',
+          },
+          {
+            label: xLabel,
+            data: companiesCount,
+            backgroundColor: gradientBar,
+            pointBackgroundColor: 'white',
+            borderWidth: 2,
+            borderColor: gradientBar,
+            hoverBackgroundColor: gradientBar,
+            yAxisID: 'companiesCount',
+          }
+        ]
+      },
+      options: {
+        legend: {
+          labels: {
+            usePointStyle: true,
+            fontSize: 12,
+            padding: 30,
+            strokeStyle: '#ff0000'
+          },
+          position: 'bottom',
+          boxWidth: 20
+        },
+        responsive: true,
+        tooltips: {
+          mode: 'label',
+          displayColors: false,
+          callbacks: {
+            label: function(tooltipItem, data) {
+              var label = '';
+              if (data.datasets[tooltipItem.datasetIndex].label == yLabel) {
+                label +=  '1 (K) = $ ' + tooltipItem.yLabel
+              } else
+              if(data.datasets[tooltipItem.datasetIndex].label == xLabel) {
+                label += tooltipItem.yLabel + ' business'
+              }
+              return label;
+            },
+            title: function() {
+              return;
+            }
+          }
+        },
+        scales: {
+          xAxes: [{
+            display: true,
+            gridLines: {
+              display: true,
+              borderDash: [3, 1],
+              color: "#bbbbbb"
+            },
+            scaleLabel: {
+              display: true,
+              labelString: 'Number of connected businesses'
+            }
+          }],
+          yAxes: [
+            {
+              id: "currencyRate",
+              ticks: {
+                beginAtZero: true,
+              },
+              scaleLabel: {
+                display: true,
+                labelString: 'Price'
+              },
+              gridLines: {
+                display: true,
+                borderDash: [3, 1],
+                color: "#bbbbbb"
+              }
+            },
+            {
+              id: "companiesCount",
+              position: 'right',
+              display: false,
+              ticks: {
+                beginAtZero: true,
+              }
+            }
+          ]
+        },
+      }
+    });
+  }
+
+</script>
+
+</html>
